@@ -36,11 +36,11 @@ def cli_clockin():
         print(f"配置缺失：{', '.join(missing)}")
         return
 
-    session = make_session()
     auth = login(config["username"], config["password"], config.get("schoolid", ""))
     if not auth.ok:
         print(f"登录失败：{auth.error_msg}")
         return
+    session = auth.session  # login() 返回的 session 已携带认证 cookie
 
     cli_log("登录成功，正在获取实习计划...")
     plans = fetch_plans(session, on_log=cli_log)

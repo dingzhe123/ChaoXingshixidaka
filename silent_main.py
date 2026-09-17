@@ -23,7 +23,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from core.paths import BASE_DIR, check_writable, ensure_dirs
 from core.config import load_config, validate_config
-from core.net import make_session
 from core.auth import login
 from core.clockin import clockin_main, today_clockin_status
 from core.logging import log_message
@@ -85,7 +84,6 @@ def main():
 
     # 3. 登录
     log_message(f"静默模式启动，type={'上班' if clockin_type == '0' else '下班'}")
-    session = make_session()
     auth = login(config["username"], config["password"], config.get("schoolid", ""))
     if not auth.ok:
         msg = f"登录失败：{auth.error_msg}"
@@ -93,6 +91,7 @@ def main():
         _write_last_error(msg)
         _notify_failure(msg)
         return 3
+    session = auth.session  # login() 返回的 session 已携带认证 cookie
 
     log_message("登录成功")
 
