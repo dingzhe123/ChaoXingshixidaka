@@ -1,31 +1,43 @@
 import json
+import os
 import re
+import sys
 import time
 from tkinter import filedialog
 
 import filetype
 import requests
 
+# ==================== 路径解析 ====================
+# PyInstaller 打包后 __file__ 指向临时目录，必须基于 exe 位置定位。
+# 把 core/ 加到 sys.path，复用统一的路径解析。
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from core.paths import CONFIG_PATH  # noqa: E402
+
+# ==================== 配置加载 ====================
+def load_config():
+    """从 config/config.json 加载配置，缺失字段使用默认值"""
+    config_path = CONFIG_PATH
+    default_config = {
+        "username": "",
+        "password": "",
+        "schoolid": "",
+        "address": "",
+        "location": "",
+        "remark": "",
+        "pictureAry": []
+    }
+    if os.path.exists(config_path):
+        with open(config_path, "r", encoding="utf-8") as f:
+            user_config = json.load(f)
+        default_config.update(user_config)
+    return default_config
+
+config = load_config()
+
 headers = {
     'User-Agent': 'Mozilla/5.0 (Linux; Android 12; Redmi K30 Pro Zoom Edition Build/SKQ1.211006.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/95.0.4638.74 Mobile Safari/537.36 (device:Redmi K30 Pro Zoom Edition) Language/zh_CN com.chaoxing.mobile/ChaoXingStudy_3_6.2.8_android_phone_1050_234 (@Kalimdor)_8c0587fc07ee4c25bdbbb5d7a90d8152'
 }
-# 学习通用户名，手机号或者学号
-username = ""
-# 学习通密码
-password = ""
-# 学校ID，当用户名为学号时需要填写，为手机号时不需要填写
-schoolid = ""
-# 要打卡的地址名称、经度和纬度，可在http://api.map.baidu.com/lbsapi/getpoint/index.html中获取相应位置的坐标
-address = "河南省郑州市金水区商务内环路15号绿地中心千玺广场"
-# 打卡位置坐标，通过上面网址查询到的的坐标点可直接粘贴在这里
-location = "113.733731,34.777027"
-# 这个是学习通实习打卡中的“如果发生特殊情况未能正常打卡，可以在此填写理由”中的内容，可自行填写
-remark = ""
-# 新版实习打卡中要提交的图片列表，填写时请使用引号包裹后写在中括号内，如下面注释所示
-# pictureAry = ["3acf16259def65456fc2a68ab5e10d96"]
-# 要设置多个图片请用英文逗号隔开，如下面注释所示
-# pictureAry = ["3acf16259def65456fc2a68ab5e10d96","3acf16259def65456fc2a68ab5e10d95","3acf16259def65456fc2a68ab5e10d94"]
-pictureAry = []
 
 
 def new_clockin(session):
@@ -123,12 +135,12 @@ def new_clockin(session):
                                     "recruitId": recruitId,
                                     "pcid": pcid,
                                     "pcmajorid": pcmajorid,
-                                    "address": address,
-                                    "geolocation": location,
-                                    "remark": remark,
+                                    "address": config["address"],
+                                    "geolocation": config["location"],
+                                    "remark": config["remark"],
                                     "workStart": workStart,
                                     "workEnd": workEnd,
-                                    "images": json.dumps(pictureAry) if len(pictureAry) > 0 else "",
+                                    "images": json.dumps(config["pictureAry"]) if len(config["pictureAry"]) > 0 else "",
                                     "allowOffset": allowOffset,
                                     "offset": "NaN",
                                     "offduty": offduty,
@@ -209,7 +221,7 @@ def old_clockin2(session):
                 recruitId = re.search(r'<input type="hidden" id="recruitId" value="(.*)" />', txt, re.I).groups()[0]
                 pcid = re.search(r'<input type="hidden" id="pcid" value="(.*)" />', txt, re.I).groups()[0]
                 pcmajorid = re.search(r'<input type="hidden" id="pcmajorid" value="(.*)" />', txt, re.I).groups()[0]
-                geolocation = location
+                geolocation = config["location"]
                 should_bntover = re.search(r'''<dd class="should_bntover" selid="(.*)" workStart='(.*)' workEnd='(.*)'>''', txt, re.I).groups()
                 workStart = should_bntover[1]
                 workEnd = should_bntover[2]
@@ -229,9 +241,9 @@ def old_clockin2(session):
                     "recruitId": recruitId,
                     "pcid": pcid,
                     "pcmajorid": pcmajorid,
-                    "address": address,
+                    "address": config["address"],
                     "geolocation": geolocation,
-                    "remark": remark,
+                    "remark": config["remark"],
                     "workStart": workStart,
                     "workEnd": workEnd,
                     "images": "",
@@ -252,7 +264,7 @@ def old_clockin2(session):
 
 def clockin_main():
     session = requests.session()
-    resp = session.post('https://passport2.chaoxing.com/api/login?name={}&pwd={}&schoolid={}&verify=0'.format(username, password, schoolid), headers=headers).json()
+    resp = session.post('https://passport2.chaoxing.com/api/login?name={}&pwd={}&schoolid={}&verify=0'.format(config["username"], config["password"], config["schoolid"]), headers=headers).json()
     if resp["result"]:
         print("登录成功，正在搜索新版实习打卡任务")
         result = new_clockin(session)
@@ -280,7 +292,7 @@ def clockin_main():
 
 def upload_img():
     session = requests.session()
-    resp = session.post('https://passport2.chaoxing.com/api/login?name={}&pwd={}&schoolid={}&verify=0'.format(username, password, schoolid), headers=headers).json()
+    resp = session.post('https://passport2.chaoxing.com/api/login?name={}&pwd={}&schoolid={}&verify=0'.format(config["username"], config["password"], config["schoolid"]), headers=headers).json()
     if resp["result"]:
         while True:
             filepath = filedialog.askopenfilename(title="选择拍照图片", filetypes=(("图片文件", "*.jpg;*.png;*.gif;*.webp;*.bmp"),))
@@ -311,6 +323,15 @@ def upload_img():
 
 
 if __name__ == '__main__':
+    # 启动时校验必要配置
+    if not config["username"] or not config["password"]:
+        print("❌ 配置缺失：请在 config/config.json 中填写 username 和 password")
+        print("   参考 config/config.example.json 了解各字段含义")
+        exit(1)
+    if not config["address"] or not config["location"]:
+        print("❌ 配置缺失：请在 config/config.json 中填写 address 和 location")
+        exit(1)
+
     while True:
         print("欢迎使用学习通实习打卡签到脚本")
         print("0.开始打卡")

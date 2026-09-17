@@ -1,0 +1,9 @@
+# 运行时依赖
+requests
+filetype
+
+# GUI 依赖（仅 GUI 构建目标需要）
+PyQt5
+
+# 构建依赖（仅打包时需要，最终用户不需要）
+pyinstaller
